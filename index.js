@@ -9,6 +9,11 @@ const client = redis.createClient(REDIS_PORT);
 
 const app = express();
 
+// Set response
+function setResponse(username, repos) {
+  return `<h2>${username} has ${repos} Github repos</h2>`;
+}
+
 // Make request to Github for data
 async function getRepos(req, res, next) {
   try {
@@ -20,7 +25,13 @@ async function getRepos(req, res, next) {
 
     const data = await response.json();
 
-    res.send(data);
+    // Number of public repos that requested user has
+    const repos = data.public_repos;
+
+    // Set username: repos to Redis with expiration
+    client.setex(username, 3600, repos);
+
+    res.send(setResponse(username, repos));
   } catch (err) {
     console.error(err);
     res.status(500);
