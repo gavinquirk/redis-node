@@ -28,7 +28,7 @@ async function getRepos(req, res, next) {
     // Number of public repos that requested user has
     const repos = data.public_repos;
 
-    // Set username: repos to Redis with expiration
+    // Set username: repos to Redis with cache expiration
     client.setex(username, 3600, repos);
 
     res.send(setResponse(username, repos));
@@ -38,7 +38,26 @@ async function getRepos(req, res, next) {
   }
 }
 
-app.get('/repos/:username', getRepos);
+// Cache middleware
+function cache(req, res, next) {
+  const { username } = req.params;
+
+  client.get(username, (err, data) => {
+    if (err) throw err;
+
+    // If data exists in cache, send cached data
+    // Else continue to next, which sends request
+    if (data !== null) {
+      res.send(setResponse(username, data));
+    } else {
+      next();
+    }
+  });
+}
+
+// @GET /repos/:username
+// cache middleware will check for data, otherwise getRepos
+app.get('/repos/:username', cache, getRepos);
 
 app.listen(PORT, () => {
   console.log('App listening on port ' + PORT);
